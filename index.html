@@ -1,243 +1,1111 @@
-import React, { useState, useRef } from "react";
-
-export default function MeetingMind() {
-
-  const [aaiKey,setAaiKey] = useState("");
-  const [file,setFile] = useState(null);
-  const [fileURL,setFileURL] = useState(null);
-  const [loading,setLoading] = useState(false);
-
-  const fileRef = useRef(null);
-
-  const pickFile = (e)=>{
-    const f = e.target.files[0];
-    if(!f) return;
-
-    setFile(f);
-    setFileURL(URL.createObjectURL(f));
-  };
-
-  const fmtSize = (bytes)=>{
-    return (bytes/1024/1024).toFixed(2)+" MB";
-  };
-
-  const startProcess = async ()=>{
-    if(!aaiKey){
-      alert("Enter AssemblyAI API key");
-      return;
-    }
-
-    if(!file){
-      alert("Upload meeting recording");
-      return;
-    }
-
-    setLoading(true);
-
-    try{
-
-      const uploadRes = await fetch(
-        "https://api.assemblyai.com/v2/upload",
-        {
-          method:"POST",
-          headers:{authorization:aaiKey},
-          body:file
-        }
-      );
-
-      const uploadData = await uploadRes.json();
-
-      const transcriptRes = await fetch(
-        "https://api.assemblyai.com/v2/transcript",
-        {
-          method:"POST",
-          headers:{
-            authorization:aaiKey,
-            "content-type":"application/json"
-          },
-          body:JSON.stringify({
-            audio_url:uploadData.upload_url
-          })
-        }
-      );
-
-      const transcriptData = await transcriptRes.json();
-
-      alert("Transcription started!\nID: "+transcriptData.id);
-
-    }catch(err){
-
-      console.error(err);
-      alert("Error processing meeting");
-
-    }
-
-    setLoading(false);
-  };
-
-  return (
-
-    <div style={{
-      background:"#0b0b0b",
-      minHeight:"100vh",
-      color:"#fff",
-      fontFamily:"sans-serif",
-      padding:30
-    }}>
-
-      <div style={{maxWidth:800,margin:"0 auto"}}>
-
-        <h1 style={{marginBottom:30}}>
-          🧠 MeetingMind AI
-        </h1>
-
-        {/* API Key */}
-
-        <div style={{
-          background:"#111",
-          border:"1px solid #1c1c1c",
-          borderRadius:16,
-          padding:24,
-          marginBottom:20
-        }}>
-
-          <div style={{marginBottom:10,fontWeight:600}}>
-            🔑 AssemblyAI API Key
-          </div>
-
-          <input
-            value={aaiKey}
-            onChange={(e)=>setAaiKey(e.target.value)}
-            placeholder="Paste your AssemblyAI API key"
-            style={{
-              width:"100%",
-              padding:12,
-              borderRadius:8,
-              border:"1px solid #333",
-              background:"#0d0d0d",
-              color:"#fff"
-            }}
-          />
-
-        </div>
-
-        {/* Upload Recording */}
-
-        <div style={{
-          background:"#111",
-          border:"1px solid #1c1c1c",
-          borderRadius:16,
-          padding:24,
-          marginBottom:20
-        }}>
-
-          <div style={{marginBottom:16,fontWeight:600}}>
-            🎧 Upload Meeting Recording
-          </div>
-
-          <div
-            onClick={()=>fileRef.current.click()}
-            style={{
-              border:"2px dashed #333",
-              borderRadius:12,
-              padding:40,
-              textAlign:"center",
-              cursor:"pointer",
-              background:"#0d0d0d"
-            }}
-          >
-
-            {file ? (
-
-              <>
-                <div style={{fontSize:30}}>🎙</div>
-
-                <div style={{
-                  marginTop:10,
-                  color:"#F59E0B"
-                }}>
-                  {file.name}
-                </div>
-
-                <div style={{
-                  fontSize:12,
-                  color:"#666"
-                }}>
-                  {fmtSize(file.size)}
-                </div>
-              </>
-
-            ) : (
-
-              <>
-                <div style={{fontSize:40}}>📂</div>
-
-                <div style={{marginTop:10,color:"#777"}}>
-                  Click to upload meeting recording
-                </div>
-
-                <div style={{
-                  fontSize:12,
-                  color:"#444",
-                  marginTop:4
-                }}>
-                  MP3 · MP4 · WAV · M4A · MOV
-                </div>
-              </>
-
-            )}
-
-          </div>
-
-          <input
-            ref={fileRef}
-            type="file"
-            accept="audio/*,video/*"
-            style={{display:"none"}}
-            onChange={pickFile}
-          />
-
-          {fileURL && (
-
-            <div style={{marginTop:14}}>
-
-              <audio
-                controls
-                src={fileURL}
-                style={{width:"100%"}}
-              />
-
-            </div>
-
-          )}
-
-        </div>
-
-        {/* Start Button */}
-
-        <button
-          onClick={startProcess}
-          disabled={loading}
-          style={{
-            width:"100%",
-            padding:16,
-            borderRadius:12,
-            border:"none",
-            background:"#F59E0B",
-            color:"#000",
-            fontWeight:700,
-            cursor:"pointer"
-          }}
-        >
-
-          {loading ? "Processing..." : "⚡ Transcribe & Analyse Meeting"}
-
-        </button>
-
-      </div>
-
-    </div>
-
-  );
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MeetingMind — AI Meeting Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --cyan:   #00D4FF;
+  --amber:  #F59E0B;
+  --red:    #EF4444;
+  --green:  #10B981;
+  --blue:   #3B82F6;
+  --bg:     #050508;
+  --surface:#0d0d14;
+  --glass:  rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --text:   #e8eaf0;
+  --muted:  #5a5f7a;
 }
+ 
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+ 
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+ 
+/* ── Ambient background ── */
+.bg-orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(120px); pointer-events: none; z-index: 0;
+}
+.orb1 { width:600px; height:600px; background:rgba(0,212,255,0.06); top:-200px; left:-200px; }
+.orb2 { width:500px; height:500px; background:rgba(245,158,11,0.05); bottom:-150px; right:-150px; }
+.orb3 { width:400px; height:400px; background:rgba(139,92,246,0.04); top:40%; left:50%; transform:translate(-50%,-50%); }
+ 
+.grid-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+ 
+/* ── Navbar ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 68px;
+  background: rgba(5,5,8,0.85);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 20px; color: #fff; letter-spacing: -.5px;
+}
+.nav-logo {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--cyan), #0066ff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(0,212,255,0.3);
+}
+.nav-tagline { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+.nav-actions { display: flex; gap: 10px; align-items: center; }
+ 
+.btn-ghost {
+  padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: transparent; border: 1px solid var(--border);
+  color: #aaa; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: all .2s;
+}
+.btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.05); }
+ 
+.btn-primary {
+  padding: 8px 22px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan), #0066ff);
+  border: none; color: #fff; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: all .2s;
+  box-shadow: 0 0 20px rgba(0,212,255,0.2);
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 24px rgba(0,212,255,0.35); }
+.btn-primary:active { transform: translateY(0); }
+ 
+/* ── Hero ── */
+.hero {
+  position: relative; z-index: 1;
+  text-align: center; padding: 44px 20px 40px;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 20px; padding: 6px 16px; font-size: 12px;
+  color: var(--cyan); font-weight: 600; margin-bottom: 24px;
+  animation: fadeDown .6s ease both;
+}
+.hero-badge span { width:6px; height:6px; background:var(--cyan); border-radius:50%; animation: pulse 2s infinite; }
+.hero-sub {
+  font-size: 17px; color: var(--muted); max-width: 520px; margin: 0 auto 36px;
+  line-height: 1.7; animation: fadeDown .6s .1s ease both; opacity: 0;
+}
+.hero-steps {
+  display: flex; gap: 0; justify-content: center; align-items: center;
+  flex-wrap: wrap; margin-bottom: 0;
+  animation: fadeDown .6s .3s ease both; opacity: 0;
+}
+.hero-step {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px; background: var(--glass);
+  border: 1px solid var(--border); border-radius: 10px;
+  font-size: 13px; color: #888;
+}
+.hero-step .hs-num {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.25);
+  color: var(--cyan); font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+}
+.hero-arrow { color: var(--border); font-size: 18px; margin: 0 6px; }
+ 
+/* ── Main content wrapper ── */
+#mainContent { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; padding: 0 20px 60px; }
+ 
+/* ── Step tracker ── */
+.step-track {
+  display: flex; align-items: center; gap: 0;
+  margin-bottom: 36px; padding: 0 4px;
+}
+.st-item { display:flex; align-items:center; flex:1; }
+.st-item:last-child { flex:none; }
+.st-dot {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+  background: #111; border: 2px solid #1e1e1e; color: #333;
+  transition: all .3s;
+}
+.st-dot.active { background: rgba(0,212,255,.15); border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 12px rgba(0,212,255,.2); }
+.st-dot.done   { background: var(--green); border-color: var(--green); color: #fff; }
+.st-label { font-size: 12px; font-weight: 600; margin-left: 8px; white-space: nowrap; color: #333; opacity:.4; transition: all .3s; }
+.st-label.active { color: var(--cyan); opacity: 1; }
+.st-label.done   { color: var(--green); opacity: 1; }
+.st-line { flex: 1; height: 2px; background: #141414; margin: 0 10px; min-width: 16px; transition: background .4s; }
+.st-line.done { background: rgba(16,185,129,.4); }
+ 
+/* ── Glass cards ── */
+.gcard {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .3s;
+}
+.gcard::before {
+  content:''; position:absolute; inset:0; border-radius:20px;
+  background: linear-gradient(135deg,rgba(0,212,255,.03),transparent 60%);
+  pointer-events:none;
+}
+.gcard:hover { border-color: rgba(0,212,255,.15); }
+ 
+.card-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+}
+.card-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.ci-cyan  { background: rgba(0,212,255,.1);  border: 1px solid rgba(0,212,255,.2); }
+.ci-amber { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.2); }
+.card-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
+.card-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+ 
+/* ── Inputs ── */
+.field-input {
+  width: 100%; padding: 13px 16px;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 11px; color: var(--text); font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field-input::placeholder { color: #252535; }
+.field-input:focus { outline: none; border-color: rgba(0,212,255,.4); box-shadow: 0 0 0 3px rgba(0,212,255,.08); }
+.field-input:disabled { color: #333; }
+ 
+.tip {
+  margin-top: 10px; padding: 11px 14px;
+  background: rgba(0,212,255,.04); border: 1px solid rgba(0,212,255,.1);
+  border-radius: 9px; font-size: 12px; color: #666; line-height: 1.65;
+}
+.tip a { color: var(--cyan); text-decoration: none; }
+.tip a:hover { text-decoration: underline; }
+ 
+/* ── Drop zone ── */
+#dropZone {
+  border: 2px dashed rgba(255,255,255,.08);
+  border-radius: 14px; padding: 48px 24px;
+  text-align: center; cursor: pointer;
+  background: rgba(0,0,0,.3);
+  transition: all .25s;
+}
+#dropZone:hover, #dropZone.has-file {
+  border-color: rgba(0,212,255,.4);
+  background: rgba(0,212,255,.03);
+}
+.dz-icon { font-size: 44px; margin-bottom: 14px; }
+.dz-text { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #555; margin-bottom: 8px; }
+.dz-sub  { font-size: 12px; color: #2a2a3a; }
+.dz-filename { font-size: 16px; font-weight: 700; color: var(--cyan); margin-top: 8px; }
+.dz-size     { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.ptags { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+.ptag {
+  font-size: 11px; color: #2a2a3a;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  border-radius: 6px; padding: 4px 10px;
+}
+ 
+/* ── Main CTA ── */
+#ctaBtn {
+  width:100%; padding:17px; border:none; border-radius:14px;
+  font-size: 15px; font-weight: 800; cursor: pointer;
+  font-family: 'Syne', sans-serif; letter-spacing: .3px;
+  background: linear-gradient(135deg, #00b4d8, #0066ff, #7c3aed);
+  background-size: 200%;
+  color: #fff;
+  transition: all .3s;
+  box-shadow: 0 4px 30px rgba(0,212,255,.2);
+}
+#ctaBtn:hover { background-position: right; box-shadow: 0 6px 40px rgba(0,212,255,.35); transform: translateY(-1px); }
+#ctaBtn:active { transform: translateY(0); }
+#ctaBtn:disabled { background: #141420; color: #2a2a3a; cursor:not-allowed; box-shadow:none; }
+ 
+/* ── Error ── */
+#errorBox {
+  display:none; margin-bottom:18px; padding:12px 18px;
+  background: rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25);
+  border-radius:11px; font-size:13px; color:#fca5a5; gap:10px;
+}
+ 
+/* ── Processing ── */
+#processingSection {
+  display:none;
+  background: var(--glass); backdrop-filter:blur(12px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:70px 32px; text-align:center;
+}
+#procIcon { font-size:60px; margin-bottom:24px; display:block; }
+@keyframes spin  { to { transform:rotate(360deg); } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.15} }
+.spinning { display:inline-block; animation:spin 3s linear infinite; }
+.pulsing  { display:inline-block; animation:pulse 1.5s infinite; }
+#procTitle { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; margin-bottom:10px; }
+#procSub   { font-size:13px; color:var(--muted); max-width:380px; margin:0 auto 36px; line-height:1.7; }
+#progressWrap { max-width:300px; margin:0 auto; }
+.pbar-track { height:3px; background:#151520; border-radius:4px; overflow:hidden; }
+#progressFill { height:100%; width:0%; border-radius:4px; transition:width .7s ease;
+  background:linear-gradient(90deg,var(--cyan),#7c3aed); }
+#progressPct { margin-top:8px; font-size:12px; color:#333; font-family:'JetBrains Mono',monospace; }
+#procFile { margin-top:16px; font-size:12px; color:#222; }
+ 
+/* ── Results ── */
+#resultsSection { display:none; }
+ 
+.meet-banner {
+  background: linear-gradient(135deg, rgba(0,212,255,.06), rgba(124,58,237,.04));
+  border: 1px solid rgba(0,212,255,.15);
+  border-radius: 20px; padding: 28px; margin-bottom: 18px;
+  display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start;
+}
+.meet-eye {
+  font-size:10px; font-weight:800; color:var(--cyan);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+}
+.meet-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; }
+.meet-date  { font-size:12px; color:var(--muted); margin-top:5px; display:none; }
+.badges { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.badge {
+  font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.8px;
+  border-radius:5px; padding:4px 10px;
+}
+ 
+/* ── Tabs ── */
+.tabs {
+  display:flex; gap:4px; background:rgba(0,0,0,.4);
+  border:1px solid var(--border); border-radius:14px; padding:5px; margin-bottom:18px;
+}
+.tab-btn {
+  flex:1; padding:9px 6px; border-radius:10px;
+  font-size:12px; font-weight:700; border:none;
+  cursor:pointer; font-family:'DM Sans',sans-serif; color:var(--muted);
+  background:transparent; transition:all .2s;
+}
+.tab-btn.active {
+  background: linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,102,255,.15));
+  color: var(--cyan); border:1px solid rgba(0,212,255,.25);
+}
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+ 
+.panel-card {
+  background:var(--glass); backdrop-filter:blur(12px);
+  border:1px solid var(--border); border-radius:16px; padding:24px;
+}
+.panel-text { font-size:14px; color:#b0b4c8; line-height:1.9; }
+ 
+/* ── Member cards ── */
+.member-card {
+  background: var(--glass); backdrop-filter:blur(8px);
+  border:1px solid var(--border); border-radius:16px;
+  padding:22px; margin-bottom:12px; transition:border-color .2s;
+  position:relative; overflow:hidden;
+}
+.member-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent,#00D4FF),transparent);
+  opacity:.4;
+}
+.member-card:hover { border-color:rgba(0,212,255,.2); }
+.member-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+.avatar {
+  width:42px; height:42px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:13px; flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;
+}
+.member-name { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; color:#fff; }
+.member-role { font-size:11px; color:var(--muted); margin-top:2px; }
+.member-meta { display:flex; gap:8px; align-items:center; margin-left:auto; flex-wrap:wrap; }
+.task-count  { font-size:11px; color:#333; font-family:'JetBrains Mono',monospace; }
+.status-pill { font-size:11px; font-weight:700; border-radius:20px; padding:3px 11px; }
+ 
+.task-item {
+  display:flex; gap:10px; align-items:flex-start;
+  padding:10px 12px; border-radius:9px; margin-bottom:5px;
+  background:rgba(0,0,0,.3);
+}
+.task-lbl {
+  font-size:10px; font-weight:800; border-radius:5px; padding:2px 7px;
+  flex-shrink:0; font-family:'JetBrains Mono',monospace; margin-top:1px;
+}
+.task-txt { font-size:13px; color:#a0a4b8; line-height:1.65; }
+.no-tasks  { font-size:12px; color:#333; font-style:italic; margin-bottom:14px; }
+ 
+.email-row { display:flex; gap:10px; align-items:center; }
+.email-row span { font-size:18px; flex-shrink:0; }
+ 
+.decision-item {
+  display:flex; gap:12px; align-items:flex-start;
+  padding:14px 0; border-bottom:1px solid rgba(255,255,255,.04);
+}
+.decision-item:last-child { border-bottom:none; }
+.decision-check {
+  width:24px; height:24px; border-radius:7px; flex-shrink:0;
+  background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.25);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; color:var(--green); font-weight:800;
+}
+.decision-text { font-size:13px; color:#a0a4b8; line-height:1.65; }
+ 
+.transcript-pre {
+  font-size:12px; color:var(--muted); line-height:2; white-space:pre-wrap;
+  font-family:'JetBrains Mono',monospace; max-height:460px; overflow-y:auto;
+}
+ 
+.next-box {
+  margin-top:20px; padding:14px 18px;
+  background:rgba(59,130,246,.07); border:1px solid rgba(59,130,246,.2);
+  border-radius:10px; font-size:13px; color:#93c5fd;
+}
+ 
+/* ── Send button ── */
+#sendBtn {
+  width:100%; margin-top:8px; padding:15px; border:none; border-radius:13px;
+  font-size:15px; font-weight:800; color:#fff; cursor:pointer;
+  font-family:'Syne',sans-serif;
+  background:linear-gradient(135deg,var(--amber),var(--red));
+  box-shadow:0 4px 28px rgba(245,158,11,.2);
+  transition:all .2s;
+}
+#sendBtn:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 6px 36px rgba(245,158,11,.35); }
+#sendBtn:active { transform:translateY(0); }
+ 
+#mailingMsg {
+  display:none; margin-top:12px; padding:14px 20px;
+  background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.15);
+  border-radius:10px; text-align:center; font-size:13px; color:var(--amber);
+  animation:pulse 1.2s infinite;
+}
+ 
+#doneBanner {
+  display:none; margin-top:18px; padding:30px 24px;
+  background: linear-gradient(135deg,rgba(16,185,129,.06),rgba(0,212,255,.04));
+  border:1px solid rgba(16,185,129,.2); border-radius:16px; text-align:center;
+}
+.done-emoji { font-size:44px; margin-bottom:14px; }
+.done-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; margin-bottom:8px; }
+.done-sub   { font-size:13px; color:var(--muted); margin-bottom:22px; }
+#againBtn {
+  padding:10px 26px; background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1); border-radius:9px;
+  font-size:13px; font-weight:600; color:#666; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:all .2s;
+}
+#againBtn:hover { color:#aaa; border-color:rgba(255,255,255,.2); }
+ 
+#resetBtn {
+  margin-left:auto; padding:8px 16px; font-size:12px; font-weight:600;
+  background:rgba(255,255,255,.04); border:1px solid var(--border);
+  border-radius:8px; color:#666; cursor:pointer; font-family:inherit;
+  display:none; transition:all .2s;
+}
+#resetBtn:hover { color:#aaa; }
+ 
+/* ════════════════════ MODALS ════════════════════ */
+.modal-overlay {
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(8px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.modal-overlay.open { display:flex; }
+ 
+.modal {
+  background: #0d0d18;
+  border:1px solid rgba(0,212,255,.15); border-radius:24px;
+  padding:40px 36px; width:100%; max-width:420px;
+  position:relative;
+  animation:modalIn .3s ease both;
+  box-shadow:0 24px 80px rgba(0,0,0,.8), 0 0 0 1px rgba(0,212,255,.05);
+}
+.modal::before {
+  content:''; position:absolute; inset:0; border-radius:24px;
+  background:linear-gradient(135deg,rgba(0,212,255,.04),transparent 50%);
+  pointer-events:none;
+}
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(20px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.modal-close {
+  position:absolute; top:16px; right:16px; width:32px; height:32px;
+  border-radius:8px; background:rgba(255,255,255,.06);
+  border:1px solid var(--border); color:#666; font-size:14px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-family:inherit; transition:all .2s;
+}
+.modal-close:hover { background:rgba(255,255,255,.1); color:#aaa; }
+ 
+.modal-icon {
+  width:52px; height:52px; border-radius:15px; margin:0 auto 20px;
+  display:flex; align-items:center; justify-content:center; font-size:24px;
+  background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,102,255,.1));
+  border:1px solid rgba(0,212,255,.2);
+}
+.modal-title {
+  font-family:'Syne',sans-serif; font-size:22px; font-weight:800;
+  color:#fff; text-align:center; margin-bottom:6px;
+}
+.modal-sub { font-size:13px; color:var(--muted); text-align:center; margin-bottom:28px; }
+ 
+.form-group { margin-bottom:16px; }
+.form-label { font-size:12px; font-weight:600; color:#888; display:block; margin-bottom:7px; letter-spacing:.5px; text-transform:uppercase; }
+.form-input {
+  width:100%; padding:12px 16px;
+  background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.07);
+  border-radius:10px; color:var(--text); font-size:14px;
+  font-family:'DM Sans',sans-serif; transition:all .2s;
+}
+.form-input::placeholder { color:#252535; }
+.form-input:focus { outline:none; border-color:rgba(0,212,255,.4); box-shadow:0 0 0 3px rgba(0,212,255,.08); }
+ 
+.form-btn {
+  width:100%; padding:14px; border:none; border-radius:11px;
+  font-size:14px; font-weight:800; cursor:pointer; font-family:'Syne',sans-serif;
+  background:linear-gradient(135deg,var(--cyan),#0066ff);
+  color:#fff; margin-top:8px;
+  box-shadow:0 4px 20px rgba(0,212,255,.2);
+  transition:all .2s;
+}
+.form-btn:hover { filter:brightness(1.1); transform:translateY(-1px); }
+.form-btn:active { transform:translateY(0); }
+ 
+.modal-switch {
+  text-align:center; margin-top:18px; font-size:13px; color:var(--muted);
+}
+.modal-switch a { color:var(--cyan); cursor:pointer; text-decoration:none; font-weight:600; }
+.modal-switch a:hover { text-decoration:underline; }
+ 
+.divider {
+  display:flex; align-items:center; gap:12px; margin:20px 0;
+}
+.divider::before, .divider::after {
+  content:''; flex:1; height:1px; background:rgba(255,255,255,.07);
+}
+.divider span { font-size:11px; color:#333; white-space:nowrap; }
+ 
+.social-btn {
+  width:100%; padding:11px; border-radius:10px;
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  color:#888; font-size:13px; font-weight:600; cursor:pointer;
+  font-family:'DM Sans',sans-serif; display:flex; align-items:center;
+  justify-content:center; gap:10px; margin-bottom:8px; transition:all .2s;
+}
+.social-btn:hover { background:rgba(255,255,255,.08); color:#bbb; }
+ 
+.success-toast {
+  display:none; position:fixed; bottom:30px; right:30px; z-index:300;
+  background: #0d1a14; border:1px solid rgba(16,185,129,.3);
+  border-radius:12px; padding:14px 20px; font-size:13px; color:var(--green);
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  animation:toastIn .3s ease both;
+  gap:10px;
+}
+.success-toast.show { display:flex; align-items:center; }
+@keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+ 
+/* ── Animations ── */
+@keyframes fadeDown {
+  from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)}
+}
+@keyframes fadeUp {
+  from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)}
+}
+.fade-in { animation:fadeUp .4s ease both; }
+ 
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-thumb { background:#222; border-radius:4px; }
+</style>
+</head>
+<body>
+ 
+<!-- Ambient background -->
+<div class="bg-orb orb1"></div>
+<div class="bg-orb orb2"></div>
+<div class="bg-orb orb3"></div>
+<div class="grid-bg"></div>
+ 
+<!-- ══ NAVBAR ══ -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">🎙</div>
+    <div>
+      MeetingMind
+      <div class="nav-tagline">AI-powered meeting intelligence</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-ghost" onclick="openModal('login')">Log In</button>
+    <button class="btn-primary" onclick="openModal('register')">Register Free</button>
+  </div>
+</nav>
+ 
+<!-- ══ HERO ══ -->
+<section class="hero">
+  <div class="hero-badge"><span></span> AI-Powered Meeting Assistant</div>
+  <p class="hero-sub">Upload your meeting recording. AI extracts every task assigned to every person, then emails them automatically.</p>
+  <div class="hero-steps">
+    <div class="hero-step"><span class="hs-num">1</span> Upload Recording</div>
+    <div class="hero-arrow">→</div>
+    <div class="hero-step"><span class="hs-num">2</span> AI Transcribes</div>
+    <div class="hero-arrow">→</div>
+    <div class="hero-step"><span class="hs-num">3</span> Extract Tasks</div>
+    <div class="hero-arrow">→</div>
+    <div class="hero-step"><span class="hs-num">4</span> Email Everyone</div>
+  </div>
+</section>
+ 
+<!-- ══ MAIN APP ══ -->
+<div id="mainContent">
+ 
+  <!-- Step tracker -->
+  <div class="step-track" id="stepTracker"></div>
+ 
+  <!-- Error -->
+  <div id="errorBox" style="display:none;"></div>
+ 
+  <!-- Setup -->
+  <div id="setupSection" class="fade-in">
+ 
+    <!-- API Key -->
+    <div class="gcard">
+      <div class="card-head">
+        <div class="card-icon ci-cyan">🔑</div>
+        <div>
+          <div class="card-title">AssemblyAI API Key</div>
+          <div class="card-sub">Required for speech-to-text transcription</div>
+        </div>
+      </div>
+      <input class="field-input" type="password" id="aaiKey" placeholder="aai-••••••••••••••••••••••••••••••••••••"/>
+      <div class="tip">
+        💡 Free at <a href="https://www.assemblyai.com/app/account" target="_blank">assemblyai.com</a>
+        — 5 hours/month free. Auto-detects multiple speakers so Claude assigns tasks to the right person.
+      </div>
+    </div>
+ 
+    <!-- Upload -->
+    <div class="gcard">
+      <div class="card-head">
+        <div class="card-icon ci-amber">🎧</div>
+        <div>
+          <div class="card-title">Meeting Recording</div>
+          <div class="card-sub">MP3 · MP4 · M4A · WAV · WEBM · MOV · OGG</div>
+        </div>
+      </div>
+ 
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div id="dropContent">
+          <div class="dz-icon">📂</div>
+          <div class="dz-text">Click to upload your meeting recording</div>
+          <div class="dz-sub">Supports all major audio and video formats</div>
+          <div class="ptags">
+            <span class="ptag">Google Meet</span><span class="ptag">Zoom</span>
+            <span class="ptag">MS Teams</span><span class="ptag">Webex</span>
+            <span class="ptag">OBS</span><span class="ptag">QuickTime</span>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept="audio/*,video/*" style="display:none" onchange="pickFile(event)"/>
+ 
+      <div id="audioPlayer" style="margin-top:16px;display:none;">
+        <audio id="audioEl" controls style="width:100%;height:40px;border-radius:8px;"></audio>
+      </div>
+    </div>
+ 
+    <button id="ctaBtn" onclick="startProcess()">⚡ Transcribe &amp; Analyse Meeting</button>
+  </div>
+ 
+  <!-- Processing -->
+  <div id="processingSection">
+    <span id="procIcon" class="spinning">📤</span>
+    <div id="procTitle">Uploading recording…</div>
+    <div id="procSub">Securely transferring to AssemblyAI servers</div>
+    <div id="progressWrap">
+      <div class="pbar-track"><div id="progressFill"></div></div>
+      <div id="progressPct">0%</div>
+    </div>
+    <div id="procFile"></div>
+  </div>
+ 
+  <!-- Results -->
+  <div id="resultsSection">
+    <div class="meet-banner">
+      <div style="flex:1;min-width:180px;">
+        <div class="meet-eye">Meeting Analysed</div>
+        <div class="meet-title" id="meetingTitle">—</div>
+        <div class="meet-date"  id="meetingDate"></div>
+      </div>
+      <div class="badges" id="meetingBadges"></div>
+      <button id="resetBtn" onclick="resetApp()">↩ Reset</button>
+    </div>
+ 
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('tasks')">📋 Tasks &amp; Emails</button>
+      <button class="tab-btn"        onclick="switchTab('summary')">📝 Summary</button>
+      <button class="tab-btn"        onclick="switchTab('decisions')">✅ Decisions</button>
+      <button class="tab-btn"        onclick="switchTab('transcript')">🎙 Transcript</button>
+    </div>
+ 
+    <div id="panel-tasks" class="tab-panel active">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+        Enter each member's email. Each person receives <strong style="color:var(--cyan)">only their own tasks</strong> + the full meeting summary.
+      </p>
+      <div id="membersList"></div>
+      <button id="sendBtn" onclick="sendEmails()">📨 Send Personalised Emails via Gmail</button>
+      <div id="mailingMsg">Dispatching emails…</div>
+      <div id="doneBanner">
+        <div class="done-emoji">🎉</div>
+        <div class="done-title">All done!</div>
+        <div class="done-sub" id="doneSubText"></div>
+        <button id="againBtn" onclick="resetApp()">↩ Process another meeting</button>
+      </div>
+    </div>
+ 
+    <div id="panel-summary" class="tab-panel">
+      <div class="panel-card">
+        <p class="panel-text" id="summaryText"></p>
+        <div id="nextMeetingBox" class="next-box" style="display:none;"></div>
+      </div>
+    </div>
+ 
+    <div id="panel-decisions" class="tab-panel">
+      <div class="panel-card" id="decisionsContent"></div>
+    </div>
+ 
+    <div id="panel-transcript" class="tab-panel">
+      <div class="panel-card">
+        <pre class="transcript-pre" id="transcriptText">Loading…</pre>
+      </div>
+    </div>
+  </div>
+ 
+</div><!-- #mainContent -->
+ 
+<!-- ══ LOGIN MODAL ══ -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('login')">✕</button>
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">Welcome back</div>
+    <div class="modal-sub">Sign in to your MeetingMind account</div>
+ 
+    <button class="social-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+ 
+    <div class="divider"><span>or sign in with email</span></div>
+ 
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" type="email" placeholder="you@company.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" placeholder="Enter your password"/>
+    </div>
+    <button class="form-btn" onclick="handleLogin()">Sign In →</button>
+ 
+    <div class="modal-switch">
+      Don't have an account? <a onclick="switchModal('login','register')">Create one free</a>
+    </div>
+  </div>
+</div>
+ 
+<!-- ══ REGISTER MODAL ══ -->
+<div class="modal-overlay" id="registerModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('register')">✕</button>
+    <div class="modal-icon">✨</div>
+    <div class="modal-title">Create account</div>
+    <div class="modal-sub">Start using MeetingMind for free</div>
+ 
+    <button class="social-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign up with Google
+    </button>
+ 
+    <div class="divider"><span>or register with email</span></div>
+ 
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input class="form-input" type="text" placeholder="Your full name"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" type="email" placeholder="you@company.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" placeholder="Create a strong password"/>
+    </div>
+    <button class="form-btn" onclick="handleRegister()">Create Account →</button>
+ 
+    <div class="modal-switch">
+      Already have an account? <a onclick="switchModal('register','login')">Sign in</a>
+    </div>
+  </div>
+</div>
+ 
+<!-- Toast -->
+<div class="success-toast" id="toast"></div>
+ 
+<script>
+// ─── Constants ────────────────────────────────────────────────────
+const CLAUDE_MODEL  = "claude-sonnet-4-20250514";
+const GMAIL_MCP_URL = "https://gmail.mcp.claude.com/mcp";
+const COLORS = [
+  {bg:"rgba(0,212,255,.12)",   border:"rgba(0,212,255,.3)",   text:"#00D4FF",   accent:"#00D4FF"},
+  {bg:"rgba(245,158,11,.12)",  border:"rgba(245,158,11,.3)",  text:"#F59E0B",   accent:"#F59E0B"},
+  {bg:"rgba(16,185,129,.12)",  border:"rgba(16,185,129,.3)",  text:"#10B981",   accent:"#10B981"},
+  {bg:"rgba(239,68,68,.12)",   border:"rgba(239,68,68,.3)",   text:"#EF4444",   accent:"#EF4444"},
+  {bg:"rgba(139,92,246,.12)",  border:"rgba(139,92,246,.3)",  text:"#8B5CF6",   accent:"#8B5CF6"},
+  {bg:"rgba(236,72,153,.12)",  border:"rgba(236,72,153,.3)",  text:"#EC4899",   accent:"#EC4899"},
+  {bg:"rgba(6,182,212,.12)",   border:"rgba(6,182,212,.3)",   text:"#06B6D4",   accent:"#06B6D4"},
+  {bg:"rgba(132,204,22,.12)",  border:"rgba(132,204,22,.3)",  text:"#84CC16",   accent:"#84CC16"},
+];
+ 
+// ─── State ────────────────────────────────────────────────────────
+let selectedFile = null, transcriptText = "", meetingData = null;
+let emailMap = {}, mailStatuses = {}, currentStep = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+ 
+// ─── Modal logic ──────────────────────────────────────────────────
+function openModal(type) {
+  document.getElementById(type + "Modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function closeModal(type) {
+  document.getElementById(type + "Modal").classList.remove("open");
+  document.body.style.overflow = "";
+}
+function switchModal(from, to) { closeModal(from); openModal(to); }
+ 
+document.querySelectorAll(".modal-overlay").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m) { m.classList.remove("open"); document.body.style.overflow = ""; } });
+});
+ 
+function showToast(msg, icon="✓") {
+  const t = document.getElementById("toast");
+  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3500);
+}
+ 
+function handleLogin() {
+  closeModal("login");
+  showToast("Welcome back! Signed in successfully.");
+}
+function handleRegister() {
+  closeModal("register");
+  showToast("Account created! Welcome to MeetingMind 🎉");
+}
+ 
+// ─── Steps ────────────────────────────────────────────────────────
+function initSteps() {
+  const labels = ["Setup","Transcribe","Analyse","Send Emails"];
+  const track  = document.getElementById("stepTracker");
+  track.innerHTML = "";
+  labels.forEach((lbl, i) => {
+    const item = document.createElement("div");
+    item.className = "st-item";
+    item.innerHTML = `<div class="st-dot" id="sd${i}">${i+1}</div><span class="st-label" id="sl${i}">${lbl}</span>`;
+    track.appendChild(item);
+    if (i < labels.length - 1) {
+      const line = document.createElement("div");
+      line.className = "st-line"; line.id = `sline${i}`;
+      track.appendChild(line);
+    }
+  });
+  updateSteps();
+}
+ 
+function updateSteps() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`sd${i}`);
+    const lbl = document.getElementById(`sl${i}`);
+    const ln  = document.getElementById(`sline${i}`);
+    dot.className = "st-dot" + (currentStep > i ? " done" : currentStep === i ? " active" : "");
+    lbl.className = "st-label" + (currentStep > i ? " done" : currentStep === i ? " active" : "");
+    dot.textContent = currentStep > i ? "✓" : String(i + 1);
+    if (ln) ln.className = "st-line" + (currentStep > i ? " done" : "");
+  }
+}
+ 
+// ─── Helpers ──────────────────────────────────────────────────────
+const initials = n => n.split(" ").map(w => w[0]||"").join("").toUpperCase().slice(0,2)||"?";
+const fmtSize  = b => b < 1048576 ? (b/1024).toFixed(0)+" KB" : (b/1048576).toFixed(1)+" MB";
+ 
+function showError(msg) {
+  const b = document.getElementById("errorBox");
+  b.style.display = "flex"; b.innerHTML = `<span>⚠</span><span>${msg}</span>`;
+}
+function hideError() { document.getElementById("errorBox").style.display = "none"; }
+function setProgress(p) {
+  document.getElementById("progressFill").style.width = p + "%";
+  document.getElementById("progressPct").textContent  = p + "%";
+}
+function setProcessUI(icon, title, sub, spinning, showBar) {
+  const el = document.getElementById("procIcon");
+  el.textContent = icon; el.className = spinning ? "spinning" : "pulsing";
+  document.getElementById("procTitle").textContent = title;
+  document.getElementById("procSub").textContent   = sub;
+  document.getElementById("progressWrap").style.display = showBar ? "block" : "none";
+}
+function showSection(id) {
+  ["setupSection","processingSection","resultsSection"].forEach(s => {
+    document.getElementById(s).style.display = "none";
+  });
+  document.getElementById(id).style.display = "block";
+}
+ 
+// ─── File pick ────────────────────────────────────────────────────
+function pickFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  selectedFile = f; hideError();
+  const zone = document.getElementById("dropZone");
+  zone.classList.add("has-file");
+  zone.innerHTML = `<div style="font-size:38px;margin-bottom:10px;">🎙</div><div class="dz-filename">${f.name}</div><div class="dz-size">${fmtSize(f.size)} · Click to change</div>`;
+  zone.onclick = () => document.getElementById("fileInput").click();
+  document.getElementById("audioEl").src = URL.createObjectURL(f);
+  document.getElementById("audioPlayer").style.display = "block";
+}
+ 
+function switchTab(name) {
+  const names = ["tasks","summary","decisions","transcript"];
+  document.querySelectorAll(".tab-btn").forEach((b, i) => b.classList.toggle("active", names[i] === name));
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("panel-" + name).classList.add("active");
+}
+ 
+// ─── STEP 1: Transcribe ───────────────────────────────────────────
+async function startProcess() {
+  const key = document.getElementById("aaiKey").value.trim();
+  if (!key)           { showError("Enter your AssemblyAI API key first."); return; }
+  if (!selectedFile)  { showError("Select a meeting recording file."); return; }
+  hideError(); currentStep = 1; updateSteps();
+  showSection("processingSection");
+  try {
+    setProcessUI("📤","Uploading recording…","Securely transferring to AssemblyAI servers",true,true);
+    setProgress(5);
+    const up = await fetch("https://api.assemblyai.com/v2/upload", {
+      method:"POST", headers:{authorization:key,"Content-Type":"application/octet-stream"}, body:selectedFile
+    });
+    if (!up.ok) throw new Error(`Upload failed (${up.status}) — check your API key.`);
+    const { upload_url } = await up.json();
+    setProgress(28);
+ 
+    setProcessUI("🎙","Transcribing audio…","Detecting speakers & converting speech to text. Takes 1–3 min.",true,true);
+    document.getElementById("procFile").textContent = selectedFile.name + " · " + fmtSize(selectedFile.size);
+    const job = await fetch("https://api.assemblyai.com/v2/transcript", {
+      method:"POST", headers:{authorization:key,"content-type":"application/json"},
+      body:JSON.stringify({audio_url:upload_url,speaker_labels:true})
+    });
+    if (!job.ok) throw new Error("Could not start transcription job.");
+    const { id } = await job.json(); setProgress(38);
+ 
+    for (let i = 0; i < 150; i++) {
+      await sleep(4000);
+      const poll = await fetch(`https://api.assemblyai.com/v2/transcript/${id}`,{headers:{authorization:key}});
+      if (!poll.ok) continue;
+      const data = await poll.json();
+      if (data.status === "completed") {
+        transcriptText = data.utterances?.length
+          ? data.utterances.map(u=>`[Speaker ${u.speaker}]: ${u.text}`).join("\n\n")
+          : (data.text||"");
+        setProgress(100); await sleep(250);
+        await analyseMeeting(transcriptText); return;
+      }
+      if (data.status === "error") throw new Error("Transcription error: "+(data.error||"unknown"));
+      setProgress(Math.min(90, 38 + i*3));
+    }
+    throw new Error("Transcription timed out.");
+  } catch(e) { showError(e.message); currentStep=0; updateSteps(); showSection("setupSection"); }
+}
+ 
+// ─── STEP 2: Analyse ──────────────────────────────────────────────
+async function analyseMeeting(text) {
+  currentStep = 2; updateSteps();
+  setProcessUI("🧠","Analysing with Claude AI…","Identifying tasks, decisions & generating meeting summary.",false,false);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model: CLAUDE_MODEL, max_tokens: 2000,
+        system:`You are a meeting analyst. Extract structured data from a meeting transcript.
+Return ONLY valid JSON — no markdown fences, no extra text.
+Schema:
+{
+  "title":"Short meeting title",
+  "date":"date mentioned or null",
+  "summary":"3-5 sentence summary of the full meeting",
+  "members":[{"name":"Name or Speaker A","role":"role or null","tasks":["task"]}],
+  "decisions":["Key decision made"],
+  "nextMeeting":"Next meeting info or null"
+}
+Rules: list every person who spoke; capture every task; tasks:[] if none; be specific.`,
+        messages:[{role:"user",content:`Transcript:\n\n${text}`}]
+      })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    const raw = d.content.map(b=>b.text||"").join("");
+    const parsed = JSON.parse(raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim());
+    meetingData = parsed; emailMap = {}; mailStatuses = {};
+    (parsed.members||[]).forEach(m => { emailMap[m.name]=""; });
+    renderResults(); currentStep=3; updateSteps(); showSection("resultsSection");
+  } catch(e) { showError("Analysis failed: "+e.message); currentStep=0; updateSteps(); showSection("setupSection"); }
+}
+ 
+// ─── STEP 3: Render ───────────────────────────────────────────────
+function renderResults() {
+  const m = meetingData;
+  document.getElementById("meetingTitle").textContent = m.title||"Team Meeting";
+  if (m.date) { const d=document.getElementById("meetingDate"); d.textContent="📅 "+m.date; d.style.display="block"; }
+  const total = (m.members||[]).reduce((a,p)=>a+p.tasks.length,0);
+  document.getElementById("meetingBadges").innerHTML = `
+    <span class="badge" style="color:#00D4FF;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);">${(m.members||[]).length} members</span>
+    <span class="badge" style="color:#10B981;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);">${total} tasks</span>`;
+  document.getElementById("transcriptText").textContent = transcriptText||"Not available.";
+  document.getElementById("summaryText").textContent = m.summary||"";
+  const nm = document.getElementById("nextMeetingBox");
+  if (m.nextMeeting) { nm.textContent="🗓 Next meeting: "+m.nextMeeting; nm.style.display="block"; }
+  const dec = document.getElementById("decisionsContent");
+  dec.innerHTML = !(m.decisions?.length) ? `<p style="font-size:13px;color:#444;">No key decisions extracted.</p>` :
+    m.decisions.map(d=>`<div class="decision-item"><div class="decision-check">✓</div><div class="decision-text">${d}</div></div>`).join("");
+  renderMembers();
+}
+ 
+function renderMembers() {
+  const list = document.getElementById("membersList"); list.innerHTML = "";
+  (meetingData.members||[]).forEach((m, i) => {
+    const c = COLORS[i%COLORS.length], st = mailStatuses[m.name];
+    const stLabel = {sending:"Sending…",sent:"✓ Sent",failed:"✗ Failed",skipped:"Skipped",no_tasks:"No tasks"}[st]||"";
+    const stColor = {sending:"#FBBF24",sent:"#10B981",failed:"#EF4444",skipped:"#555",no_tasks:"#555"}[st]||"";
+    const tasksHTML = m.tasks.length
+      ? m.tasks.map((t,j)=>`<div class="task-item" style="border-left:3px solid ${c.text}55;"><span class="task-lbl" style="color:${c.text};background:${c.bg};border:1px solid ${c.border};">T${j+1}</span><span class="task-txt">${t}</span></div>`).join("")
+      : `<p class="no-tasks">No tasks assigned to this member.</p>`;
+    const statusBadge = stLabel
+      ? `<span class="status-pill" style="color:${stColor};background:${stColor}18;border:1px solid ${stColor}33;">${stLabel}</span>` : "";
+    const card = document.createElement("div");
+    card.className = "member-card"; card.style.setProperty("--accent", c.accent);
+    card.innerHTML = `
+      <div class="member-header">
+        <div class="avatar" style="background:${c.bg};border:2px solid ${c.border};color:${c.text};">${initials(m.name)}</div>
+        <div style="flex:1;min-width:120px;">
+          <div class="member-name">${m.name}</div>
+          ${m.role?`<div class="member-role">${m.role}</div>`:""}
+        </div>
+        <div class="member-meta">
+          <span class="task-count">${m.tasks.length} task${m.tasks.length!==1?"s":""}</span>${statusBadge}
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">${tasksHTML}</div>
+      <div class="email-row">
+        <span>📧</span>
+        <input type="email" class="field-input email-input" id="ei${i}"
+          placeholder="${(m.name.split(" ")[0]||"member").toLowerCase()}@company.com"
+          value="${emailMap[m.name]||""}"
+          oninput="emailMap['${m.name}']=this.value"/>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+ 
+// ─── STEP 4: Send emails ──────────────────────────────────────────
+async function sendEmails() {
+  document.getElementById("sendBtn").style.display = "none";
+  document.getElementById("mailingMsg").style.display = "block";
+  for (const m of (meetingData.members||[])) {
+    const to = (emailMap[m.name]||"").trim();
+    if (!to||!to.includes("@")) { mailStatuses[m.name]="skipped"; renderMembers(); continue; }
+    if (!m.tasks.length)         { mailStatuses[m.name]="no_tasks"; renderMembers(); continue; }
+    mailStatuses[m.name]="sending"; renderMembers();
+    try {
+      const body = [
+        `Hi ${m.name.split(" ")[0]},`,"",
+        `Here is your personalised action summary from the meeting.`,"",
+        `══════════════════════════════`,
+        `MEETING : ${meetingData.title||"Team Meeting"}`,
+        meetingData.date?`DATE    : ${meetingData.date}`:null,
+        m.role?`ROLE    : ${m.role}`:null,
+        `══════════════════════════════`,"",
+        `📌  YOUR ASSIGNED TASKS`,`──────────────────────`,
+        m.tasks.map((t,i)=>`  ${i+1}. ${t}`).join("\n"),"",
+        `📝  MEETING SUMMARY`,`──────────────────────`,
+        meetingData.summary,
+        meetingData.decisions?.length?"\n✅  KEY DECISIONS\n──────────────────────\n"+meetingData.decisions.map((d,i)=>`  ${i+1}. ${d}`).join("\n"):null,
+        meetingData.nextMeeting?"\n🗓  NEXT MEETING: "+meetingData.nextMeeting:null,
+        "","══════════════════════════════","Sent automatically by MeetingMind",
+      ].filter(l=>l!==null).join("\n");
+      const mr = await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:CLAUDE_MODEL, max_tokens:400,
+          messages:[{role:"user",content:`Send email to ${to}. Subject: "Your Action Items – ${meetingData.title||"Team Meeting"}". Body:\n\n${body}`}],
+          mcp_servers:[{type:"url",url:GMAIL_MCP_URL,name:"gmail"}]
+        })
+      });
+      const md = await mr.json();
+      const reply=(md.content||[]).map(b=>b.text||"").join("").toLowerCase();
+      mailStatuses[m.name]=(reply.includes("error")||reply.includes("fail"))?"failed":"sent";
+    } catch { mailStatuses[m.name]="failed"; }
+    renderMembers();
+  }
+  document.getElementById("mailingMsg").style.display = "none";
+  const sent = Object.values(mailStatuses).filter(s=>s==="sent").length;
+  document.getElementById("doneSubText").textContent = `${sent} personalised email${sent!==1?"s":""} dispatched successfully.`;
+  const total = (meetingData.members||[]).reduce((a,m)=>a+m.tasks.length,0);
+  document.getElementById("meetingBadges").innerHTML = `
+    <span class="badge" style="color:#00D4FF;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);">${(meetingData.members||[]).length} members</span>
+    <span class="badge" style="color:#10B981;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);">${total} tasks</span>
+    <span class="badge" style="color:#3B82F6;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);">${sent} sent</span>`;
+  document.getElementById("doneBanner").style.display = "block";
+}
+ 
+// ─── Reset ────────────────────────────────────────────────────────
+function resetApp() {
+  selectedFile=null; transcriptText=""; meetingData=null; emailMap={}; mailStatuses={}; currentStep=0;
+  document.getElementById("aaiKey").value="";
+  document.getElementById("fileInput").value="";
+  document.getElementById("audioPlayer").style.display="none";
+  const zone = document.getElementById("dropZone");
+  zone.classList.remove("has-file");
+  zone.innerHTML=`<div id="dropContent"><div class="dz-icon">📂</div><div class="dz-text">Click to upload your meeting recording</div><div class="dz-sub">Supports all major audio and video formats</div><div class="ptags"><span class="ptag">Google Meet</span><span class="ptag">Zoom</span><span class="ptag">MS Teams</span><span class="ptag">Webex</span><span class="ptag">OBS</span><span class="ptag">QuickTime</span></div></div>`;
+  zone.onclick=()=>document.getElementById("fileInput").click();
+  document.getElementById("sendBtn").style.display="block";
+  document.getElementById("mailingMsg").style.display="none";
+  document.getElementById("doneBanner").style.display="none";
+  document.getElementById("meetingDate").style.display="none";
+  document.getElementById("nextMeetingBox").style.display="none";
+  hideError(); updateSteps(); showSection("setupSection"); switchTab("tasks");
+}
+ 
+// ─── Boot ─────────────────────────────────────────────────────────
+initSteps();
+showSection("setupSection");
+</script>
+</body>
+</html
