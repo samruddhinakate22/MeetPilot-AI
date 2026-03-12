@@ -1,0 +1,243 @@
+import React, { useState, useRef } from "react";
+
+export default function MeetingMind() {
+
+  const [aaiKey,setAaiKey] = useState("");
+  const [file,setFile] = useState(null);
+  const [fileURL,setFileURL] = useState(null);
+  const [loading,setLoading] = useState(false);
+
+  const fileRef = useRef(null);
+
+  const pickFile = (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+
+    setFile(f);
+    setFileURL(URL.createObjectURL(f));
+  };
+
+  const fmtSize = (bytes)=>{
+    return (bytes/1024/1024).toFixed(2)+" MB";
+  };
+
+  const startProcess = async ()=>{
+    if(!aaiKey){
+      alert("Enter AssemblyAI API key");
+      return;
+    }
+
+    if(!file){
+      alert("Upload meeting recording");
+      return;
+    }
+
+    setLoading(true);
+
+    try{
+
+      const uploadRes = await fetch(
+        "https://api.assemblyai.com/v2/upload",
+        {
+          method:"POST",
+          headers:{authorization:aaiKey},
+          body:file
+        }
+      );
+
+      const uploadData = await uploadRes.json();
+
+      const transcriptRes = await fetch(
+        "https://api.assemblyai.com/v2/transcript",
+        {
+          method:"POST",
+          headers:{
+            authorization:aaiKey,
+            "content-type":"application/json"
+          },
+          body:JSON.stringify({
+            audio_url:uploadData.upload_url
+          })
+        }
+      );
+
+      const transcriptData = await transcriptRes.json();
+
+      alert("Transcription started!\nID: "+transcriptData.id);
+
+    }catch(err){
+
+      console.error(err);
+      alert("Error processing meeting");
+
+    }
+
+    setLoading(false);
+  };
+
+  return (
+
+    <div style={{
+      background:"#0b0b0b",
+      minHeight:"100vh",
+      color:"#fff",
+      fontFamily:"sans-serif",
+      padding:30
+    }}>
+
+      <div style={{maxWidth:800,margin:"0 auto"}}>
+
+        <h1 style={{marginBottom:30}}>
+          🧠 MeetingMind AI
+        </h1>
+
+        {/* API Key */}
+
+        <div style={{
+          background:"#111",
+          border:"1px solid #1c1c1c",
+          borderRadius:16,
+          padding:24,
+          marginBottom:20
+        }}>
+
+          <div style={{marginBottom:10,fontWeight:600}}>
+            🔑 AssemblyAI API Key
+          </div>
+
+          <input
+            value={aaiKey}
+            onChange={(e)=>setAaiKey(e.target.value)}
+            placeholder="Paste your AssemblyAI API key"
+            style={{
+              width:"100%",
+              padding:12,
+              borderRadius:8,
+              border:"1px solid #333",
+              background:"#0d0d0d",
+              color:"#fff"
+            }}
+          />
+
+        </div>
+
+        {/* Upload Recording */}
+
+        <div style={{
+          background:"#111",
+          border:"1px solid #1c1c1c",
+          borderRadius:16,
+          padding:24,
+          marginBottom:20
+        }}>
+
+          <div style={{marginBottom:16,fontWeight:600}}>
+            🎧 Upload Meeting Recording
+          </div>
+
+          <div
+            onClick={()=>fileRef.current.click()}
+            style={{
+              border:"2px dashed #333",
+              borderRadius:12,
+              padding:40,
+              textAlign:"center",
+              cursor:"pointer",
+              background:"#0d0d0d"
+            }}
+          >
+
+            {file ? (
+
+              <>
+                <div style={{fontSize:30}}>🎙</div>
+
+                <div style={{
+                  marginTop:10,
+                  color:"#F59E0B"
+                }}>
+                  {file.name}
+                </div>
+
+                <div style={{
+                  fontSize:12,
+                  color:"#666"
+                }}>
+                  {fmtSize(file.size)}
+                </div>
+              </>
+
+            ) : (
+
+              <>
+                <div style={{fontSize:40}}>📂</div>
+
+                <div style={{marginTop:10,color:"#777"}}>
+                  Click to upload meeting recording
+                </div>
+
+                <div style={{
+                  fontSize:12,
+                  color:"#444",
+                  marginTop:4
+                }}>
+                  MP3 · MP4 · WAV · M4A · MOV
+                </div>
+              </>
+
+            )}
+
+          </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="audio/*,video/*"
+            style={{display:"none"}}
+            onChange={pickFile}
+          />
+
+          {fileURL && (
+
+            <div style={{marginTop:14}}>
+
+              <audio
+                controls
+                src={fileURL}
+                style={{width:"100%"}}
+              />
+
+            </div>
+
+          )}
+
+        </div>
+
+        {/* Start Button */}
+
+        <button
+          onClick={startProcess}
+          disabled={loading}
+          style={{
+            width:"100%",
+            padding:16,
+            borderRadius:12,
+            border:"none",
+            background:"#F59E0B",
+            color:"#000",
+            fontWeight:700,
+            cursor:"pointer"
+          }}
+        >
+
+          {loading ? "Processing..." : "⚡ Transcribe & Analyse Meeting"}
+
+        </button>
+
+      </div>
+
+    </div>
+
+  );
+
+}
