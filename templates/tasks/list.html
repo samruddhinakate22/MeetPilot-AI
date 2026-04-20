@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Tasks</h1>
+    <p>
+      {% if current_user.role == 'admin' %}Manage all team tasks{% else %}Your assigned tasks and team progress{% endif %}
+    </p>
+  </div>
+  {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('tasks.new_task') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Task
+    </a>
+  {% endif %}
+</div>
+
+<!-- Role info banner for members -->
+{% if current_user.role != 'admin' %}
+<div style="background:var(--blue-bg);border:1px solid rgba(84,160,255,0.3);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--blue);">
+  ℹ️ You can update the status of tasks assigned to you. Contact an admin to create or delete tasks.
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="filter-bar">
+  <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;flex:1;">
+    <div class="search-input-wrap" style="flex:1;min-width:200px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" name="search" placeholder="Search tasks…" value="{{ search }}">
+    </div>
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+      <option value="">All Statuses</option>
+      <option value="pending"     {% if status_filter=='pending' %}selected{% endif %}>🔴 Pending</option>
+      <option value="in_progress" {% if status_filter=='in_progress' %}selected{% endif %}>🟡 In Progress</option>
+      <option value="completed"   {% if status_filter=='completed' %}selected{% endif %}>🟢 Completed</option>
+    </select>
+    <select name="user" class="filter-select" onchange="this.form.submit()">
+      <option value="">All Members</option>
+      {% for user in users %}
+        <option value="{{ user.id }}" {% if user_filter|string==user.id|string %}selected{% endif %}>{{ user.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-secondary">Clear</a>
+  </form>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
+  <div class="stat-card red">
+    <div class="stat-num">{{ tasks|selectattr('status','eq','pending')|list|length }}</div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-num">{{ tasks|selectattr('status','eq','in_progress')|list|length }}</div>
+    <div class="stat-label">In Progress</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-num">{{ tasks|selectattr('status','eq','completed')|list|length }}</div>
+    <div class="stat-label">Completed</div>
+  </div>
+</div>
+
+{% if tasks %}
+  <div class="card" style="padding:0;">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;"></th>
+            <th>Task</th>
+            <th>Assigned To</th>
+            <th>Meeting</th>
+            <th>Deadline</th>
+            <th>Priority</th>
+            <th>Status</th>
+            {% if current_user.role == 'admin' %}<th>Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in tasks %}
+            {% set can_edit = current_user.role == 'admin' or task.assigned_to == current_user.id %}
+            <tr data-task-id="{{ task.id }}" data-searchable class="{% if task.status=='completed' %}completed{% endif %}">
+              <td>
+                {% if can_edit %}
+                  <div class="task-check {% if task.status=='completed' %}checked{% endif %}" data-task-id="{{ task.id }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                {% else %}
+                  <div style="width:20px;height:20px;border-radius:6px;border:2px solid var(--border);opacity:0.4;"></div>
+                {% endif %}
+              </td>
+              <td style="max-width:260px;">
+                <div style="font-weight:500;color:var(--text);font-size:14px;">{{ task.description[:90] }}{% if task.description|length>90 %}…{% endif %}</div>
+                {% if task.notes %}<div style="font-size:12px;color:var(--text3);">{{ task.notes[:60] }}</div>{% endif %}
+              </td>
+              <td>
+                {% if task.assignee %}
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="avatar" style="width:28px;height:28px;font-size:10px;background:{{ task.assignee.get_avatar_color() }}">{{ task.assignee.get_avatar_initials() }}</div>
+                    <span style="font-size:13px;">{{ task.assignee.name }}</span>
+                    {% if task.assigned_to == current_user.id %}<span class="chip" style="color:var(--accent2);">you</span>{% endif %}
+                  </div>
+                {% else %}
+                  <span style="font-size:13px;color:var(--text3);">{{ task.assigned_name or 'Unassigned' }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if task.meeting %}
+                  <a href="{{ url_for('meetings.view_meeting', meeting_id=task.meeting_id) }}" style="font-size:12px;color:var(--text3);">{{ task.meeting.title[:25] }}{% if task.meeting.title|length>25 %}…{% endif %}</a>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                <span class="{% if task.is_overdue() %}overdue{% endif %}" style="font-size:13px;">
+                  {{ task.deadline_display() }}{% if task.is_overdue() %} ⚠️{% endif %}
+                </span>
+              </td>
+              <td>
+                <span class="chip" style="{% if task.priority=='high' %}color:var(--red);{% elif task.priority=='low' %}color:var(--green);{% else %}color:var(--yellow);{% endif %}">{{ task.priority }}</span>
+              </td>
+              <td>
+                {% if can_edit %}
+                  <select class="status-select" data-task-id="{{ task.id }}" style="width:auto;padding:4px 8px;font-size:12px;">
+                    <option value="pending"     {% if task.status=='pending' %}selected{% endif %}>🔴 Pending</option>
+                    <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>🟡 In Progress</option>
+                    <option value="completed"   {% if task.status=='completed' %}selected{% endif %}>🟢 Completed</option>
+                  </select>
+                {% else %}
+                  <span class="badge badge-{{ task.status }}"><span class="badge-dot"></span>{{ task.status_badge()[0] }}</span>
+                {% endif %}
+              </td>
+              {% if current_user.role == 'admin' %}
+              <td>
+                <form method="POST" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" data-confirm="Delete this task?">
+                  <button type="submit" class="btn btn-danger btn-sm btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-icon">✅</div>
+    <h3>No tasks found</h3>
+    <p>{% if status_filter or user_filter or search %}Try adjusting your filters.{% else %}Tasks are extracted from meeting transcripts automatically.{% endif %}</p>
+    {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('tasks.new_task') }}" class="btn btn-primary" style="margin-top:14px;">Create Task Manually</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

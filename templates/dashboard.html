@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Overview of all meetings, tasks, and team progress</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('meetings.new_meeting') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Meeting
+    </a>
+    <a href="{{ url_for('tasks.new_task') }}" class="btn btn-secondary">Add Task</a>
+  </div>
+</div>
+
+<!-- ── Stats ── -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon">📋</div>
+    <div class="stat-num" data-target="{{ stats.total_tasks }}">0</div>
+    <div class="stat-label">Total Tasks</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">✅</div>
+    <div class="stat-num" data-target="{{ stats.completed }}">0</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">⏳</div>
+    <div class="stat-num" data-target="{{ stats.pending }}">0</div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-icon">🔄</div>
+    <div class="stat-num" data-target="{{ stats.in_progress }}">0</div>
+    <div class="stat-label">In Progress</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-icon">🎙️</div>
+    <div class="stat-num" data-target="{{ stats.total_meetings }}">0</div>
+    <div class="stat-label">Meetings</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👥</div>
+    <div class="stat-num" data-target="{{ stats.total_users }}">0</div>
+    <div class="stat-label">Team Members</div>
+  </div>
+</div>
+
+<!-- ── My Tasks + Team Overview ── -->
+<div class="grid-2" style="margin-bottom:28px;">
+
+  <!-- My Tasks -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">My Tasks</span>
+      <a href="{{ url_for('tasks.list_tasks', user=current_user.id) }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    {% if my_tasks %}
+      {% for task in my_tasks[:5] %}
+        <div class="task-item {% if task.status == 'completed' %}completed{% endif %}" data-task-id="{{ task.id }}">
+          <div class="task-check {% if task.status == 'completed' %}checked{% endif %}" data-task-id="{{ task.id }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div class="task-desc">{{ task.description }}</div>
+            <div class="task-meta">
+              {% if task.deadline %}
+                <span class="{% if task.is_overdue() %}overdue{% endif %}">
+                  📅 {{ task.deadline_display() }}
+                </span>
+              {% endif %}
+              &nbsp;
+              <span class="badge badge-{{ task.status }}">
+                <span class="badge-dot"></span>
+                {{ task.status_badge()[0] }}
+              </span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+      {% if my_tasks|length > 5 %}
+        <a href="{{ url_for('tasks.list_tasks', user=current_user.id) }}" style="font-size:13px;color:var(--text3);">
+          +{{ my_tasks|length - 5 }} more tasks →
+        </a>
+      {% endif %}
+    {% else %}
+      <div class="empty-state" style="padding:30px;">
+        <div class="empty-icon">🎉</div>
+        <h3>All clear!</h3>
+        <p>No tasks assigned to you.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Recent Meetings -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Recent Meetings</span>
+      <a href="{{ url_for('meetings.list_meetings') }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    {% if meetings %}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        {% for meeting in meetings[:4] %}
+          <a href="{{ url_for('meetings.view_meeting', meeting_id=meeting.id) }}" style="text-decoration:none;">
+            <div class="meeting-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="meeting-title">{{ meeting.title }}</div>
+                <span class="chip">{{ meeting.status }}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;">
+                <span class="meeting-date">📅 {{ meeting.date.strftime('%b %d, %Y') }}</span>
+                <span class="meeting-date">📌 {{ meeting.tasks.count() }} tasks</span>
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding:30px;">
+        <div class="empty-icon">🎙️</div>
+        <h3>No meetings yet</h3>
+        <a href="{{ url_for('meetings.new_meeting') }}" class="btn btn-primary btn-sm" style="margin-top:10px;">Add Meeting</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Team Overview ── -->
+<div class="card" style="margin-bottom:28px;">
+  <div class="card-header">
+    <span class="card-title">Team Overview</span>
+    <span style="font-size:13px;color:var(--text3);">Task completion per member</span>
+  </div>
+
+  <div style="margin-bottom:12px;">
+    <input id="liveSearch" type="text" placeholder="🔍 Search team members..." style="max-width:300px;">
+  </div>
+
+  <div class="user-grid">
+    {% for user in users %}
+      {% set ts = user.task_stats() %}
+      <div class="user-card" data-searchable>
+        <div class="user-card-top">
+          <div class="avatar" style="background:{{ user.get_avatar_color() }}">{{ user.get_avatar_initials() }}</div>
+          <div>
+            <div class="user-name">{{ user.name }}</div>
+            <div class="user-email">{{ user.email }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;font-size:12px;color:var(--text3);">
+          <span style="color:var(--green);">✅ {{ ts.completed }}</span>
+          <span style="color:var(--yellow);">🔄 {{ ts.in_progress }}</span>
+          <span style="color:var(--red);">⏳ {{ ts.pending }}</span>
+          <span>/ {{ ts.total }} total</span>
+        </div>
+
+        <div class="progress-row">
+          <div class="progress-bar">
+            <div class="progress-fill green" data-width="{{ ts.completion_rate }}" style="width:0%"></div>
+          </div>
+          <span class="progress-label">{{ ts.completion_rate }}%</span>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <a href="{{ url_for('tasks.list_tasks', user=user.id) }}" class="btn btn-secondary btn-sm" style="flex:1;justify-content:center;">
+            View Tasks
+          </a>
+          <span class="chip" style="align-self:center;">{{ user.role }}</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── All Tasks Table ── -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">All Tasks</span>
+    <div style="display:flex;gap:8px;">
+      <a href="{{ url_for('tasks.list_tasks', status='pending') }}" class="btn btn-secondary btn-sm">Pending</a>
+      <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-secondary btn-sm">All</a>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Assigned To</th>
+          <th>Meeting</th>
+          <th>Deadline</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in all_tasks[:10] %}
+          <tr data-task-id="{{ task.id }}" class="{% if task.status == 'completed' %}completed{% endif %}">
+            <td style="max-width:260px;">
+              <span class="task-desc">{{ task.description[:80] }}{% if task.description|length > 80 %}…{% endif %}</span>
+            </td>
+            <td>
+              {% if task.assignee %}
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="avatar" style="width:28px;height:28px;font-size:11px;background:{{ task.assignee.get_avatar_color() }}">
+                    {{ task.assignee.get_avatar_initials() }}
+                  </div>
+                  <span style="font-size:13px;">{{ task.assignee.name }}</span>
+                </div>
+              {% else %}
+                <span style="color:var(--text3);font-size:13px;">Unassigned</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if task.meeting %}
+                <a href="{{ url_for('meetings.view_meeting', meeting_id=task.meeting_id) }}" style="font-size:13px;color:var(--text2);">
+                  {{ task.meeting.title[:30] }}
+                </a>
+              {% else %}
+                <span style="color:var(--text3);font-size:13px;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="{% if task.is_overdue() %}overdue{% endif %}" style="font-size:13px;">
+                {{ task.deadline_display() }}
+              </span>
+            </td>
+            <td>
+              <span class="badge badge-{{ task.status }}">
+                <span class="badge-dot"></span>
+                {{ task.status_badge()[0] }}
+              </span>
+            </td>
+            <td>
+                {% if current_user.role == 'admin' or task.assigned_to == current_user.id %}
+                <select class="status-select" data-task-id="{{ task.id }}" style="width:auto;padding:5px 8px;font-size:12px;">
+                  <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending</option>
+                  <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                  <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Completed</option>
+                </select>
+                {% else %}
+                <span style="font-size:12px;color:var(--text3);padding:5px 8px;display:inline-block;">
+                  🔒 View only
+                </span>
+                {% endif %}
+              </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:32px;">No tasks yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if all_tasks|length > 10 %}
+    <div style="text-align:center;margin-top:16px;">
+      <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-secondary">View all {{ all_tasks|length }} tasks →</a>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

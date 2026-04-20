@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}New Meeting{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>New Meeting</h1>
+    <p>Paste a transcript or upload an audio file — AI will analyze everything automatically</p>
+  </div>
+  <a href="{{ url_for('meetings.list_meetings') }}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="grid-2">
+  <!-- ── Left: Form ── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+    <form method="POST" enctype="multipart/form-data" id="meetingForm">
+
+      <!-- Meeting Details -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:18px;">📋 Meeting Details</div>
+        <div class="form-group">
+          <label>Meeting Title *</label>
+          <input type="text" name="title" placeholder="e.g. Q4 Planning Meeting" required autofocus>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" name="description" placeholder="Brief summary of meeting purpose">
+        </div>
+        <div class="form-group">
+          <label>Meeting Date & Time</label>
+          <input type="datetime-local" name="meeting_date">
+        </div>
+      </div>
+
+      <!-- Input Mode Tabs -->
+      <div class="card">
+        <div class="card-header" style="margin-bottom:16px;">
+          <span class="card-title">🎙️ Meeting Content</span>
+          <span id="wordCountBadge" style="font-size:12px;color:var(--text3);">0 words</span>
+        </div>
+
+        <!-- Mode selector -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;">
+          <button type="button" class="mode-btn active" id="btnText" onclick="switchMode('text')">
+            📝 Paste Transcript
+          </button>
+          <button type="button" class="mode-btn" id="btnAudio" onclick="switchMode('audio')"
+            {% if not audio_enabled %}title="Set ASSEMBLYAI_API_KEY in .env to enable"{% endif %}>
+            🎵 Upload Audio
+            {% if not audio_enabled %}<span style="font-size:10px;color:var(--red);margin-left:4px;">Not configured</span>{% endif %}
+          </button>
+        </div>
+        <input type="hidden" name="input_mode" id="inputMode" value="text">
+
+        <!-- Text transcript panel -->
+        <div id="textPanel">
+          <textarea id="transcriptInput" name="transcript" rows="14"
+            placeholder="Paste your meeting transcript here...
+
+Format:
+Alice: Let's finalize the launch date.
+Bob: I'll complete testing by Nov 15.
+Carol: I'll prepare the press release by Friday."></textarea>
+          <p class="form-hint">💡 Use "Name: message" format for best AI speaker detection and task extraction.</p>
+        </div>
+
+        <!-- Audio upload panel -->
+        <div id="audioPanel" style="display:none;">
+          {% if audio_enabled %}
+            <div class="upload-drop-zone" id="dropZone">
+              <div style="font-size:40px;margin-bottom:12px;">🎵</div>
+              <p style="font-weight:600;color:var(--text);margin-bottom:6px;">Drop audio file here</p>
+              <p style="font-size:13px;color:var(--text3);margin-bottom:14px;">MP3, MP4, WAV, M4A, OGG, FLAC supported</p>
+              <label class="btn btn-secondary" style="cursor:pointer;">
+                Choose File
+                <input type="file" name="audio_file" id="audioFileInput" accept=".mp3,.mp4,.wav,.m4a,.ogg,.webm,.flac" style="display:none;" onchange="showFileName(this)">
+              </label>
+              <p id="fileNameDisplay" style="font-size:13px;color:var(--green);margin-top:10px;display:none;"></p>
+            </div>
+            <div style="background:var(--yellow-bg);border:1px solid rgba(254,202,87,0.3);border-radius:var(--radius-sm);padding:12px 14px;margin-top:12px;font-size:13px;color:var(--yellow);">
+              ⏳ <strong>Note:</strong> Audio transcription takes 1–3 minutes depending on file size. Please wait after clicking Analyze.
+            </div>
+          {% else %}
+            <div style="text-align:center;padding:40px 20px;background:var(--bg3);border-radius:var(--radius-sm);border:2px dashed var(--border);">
+              <div style="font-size:36px;margin-bottom:12px;">🔑</div>
+              <p style="font-weight:600;color:var(--text);margin-bottom:8px;">AssemblyAI API Key Required</p>
+              <p style="font-size:13px;color:var(--text3);">Add your API key to the <code style="background:var(--bg4);padding:2px 6px;border-radius:4px;">.env</code> file to enable audio transcription.</p>
+              <a href="https://www.assemblyai.com" target="_blank" class="btn btn-secondary btn-sm" style="margin-top:12px;">Get Free API Key →</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Email Notifications -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:4px;">📧 Email Notifications</div>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:14px;">Send meeting summary to selected team members after analysis</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          {% for user in users %}
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--border);transition:border-color 0.18s;">
+              <input type="checkbox" name="notify_users" value="{{ user.id }}" style="width:16px;height:16px;accent-color:var(--accent);">
+              <div class="avatar" style="width:28px;height:28px;font-size:10px;background:{{ user.get_avatar_color() }};flex-shrink:0;">{{ user.get_avatar_initials() }}</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text);">{{ user.name }}</div>
+                <div style="font-size:11px;color:var(--text3);">{{ user.role }}</div>
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="submitBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span id="submitLabel">Analyze Meeting with AI</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Right: Info panels ── -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">🤖 What AI Extracts</div>
+      {% for icon, title, desc in [
+        ('📝','Summary','Concise paragraph of the full meeting'),
+        ('💡','Key Points','Important discussion highlights'),
+        ('✅','Decisions','Confirmed agreements and conclusions'),
+        ('📌','Tasks','Action items with assignees and deadlines'),
+        ('🏷️','Keywords','Key topics and themes'),
+      ] %}
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;">
+          <span style="font-size:20px;">{{ icon }}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px;color:var(--text);">{{ title }}</div>
+            <div style="font-size:13px;color:var(--text3);">{{ desc }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="card" style="border-color:rgba(29,209,161,0.3);background:rgba(29,209,161,0.04);">
+      <div class="card-title" style="color:var(--green);margin-bottom:12px;">🎵 Audio Support</div>
+      <div style="font-size:13px;color:var(--text3);line-height:1.8;">
+        <div>✅ Supports: MP3, MP4, WAV, M4A, OGG, FLAC</div>
+        <div>✅ Auto speaker detection</div>
+        <div>✅ Powered by AssemblyAI</div>
+        <div>✅ Free tier: 5 hours/month</div>
+        <div style="margin-top:8px;">
+          <a href="https://www.assemblyai.com" target="_blank" style="color:var(--green);">Get free API key →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">👥 Team Members</div>
+      {% for user in users %}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div class="avatar" style="width:28px;height:28px;font-size:10px;background:{{ user.get_avatar_color() }};">{{ user.get_avatar_initials() }}</div>
+          <span style="font-size:13px;color:var(--text2);">{{ user.name }}</span>
+          <span class="chip" style="margin-left:auto;">{{ user.role }}</span>
+        </div>
+      {% endfor %}
+      <p style="font-size:12px;color:var(--text3);margin-top:8px;">💡 Use these exact names in your transcript for auto-assignment.</p>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.mode-btn {
+  flex: 1; padding: 10px 16px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--text2); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.18s;
+}
+.mode-btn.active {
+  background: var(--accent-glow); color: var(--accent2);
+  border-color: rgba(108,99,255,0.4);
+}
+.upload-drop-zone {
+  border: 2px dashed var(--border2); border-radius: var(--radius);
+  padding: 36px 20px; text-align: center;
+  transition: border-color 0.18s; background: var(--bg3);
+}
+.upload-drop-zone.dragover { border-color: var(--accent); background: var(--accent-glow); }
+</style>
+
+<script>
+function switchMode(mode) {
+  document.getElementById('inputMode').value = mode;
+  document.getElementById('textPanel').style.display  = mode === 'text'  ? '' : 'none';
+  document.getElementById('audioPanel').style.display = mode === 'audio' ? '' : 'none';
+  document.getElementById('btnText').classList.toggle('active',  mode === 'text');
+  document.getElementById('btnAudio').classList.toggle('active', mode === 'audio');
+  document.getElementById('submitLabel').textContent =
+    mode === 'audio' ? 'Upload & Transcribe with AI' : 'Analyze Meeting with AI';
+
+  // audio doesn't need transcript field
+  document.getElementById('transcriptInput').required = (mode === 'text');
+}
+
+function showFileName(input) {
+  const display = document.getElementById('fileNameDisplay');
+  if (input.files && input.files[0]) {
+    const size = (input.files[0].size / 1024 / 1024).toFixed(1);
+    display.textContent = `✅ ${input.files[0].name} (${size} MB)`;
+    display.style.display = '';
+  }
+}
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+if (dz) {
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('dragover'));
+  dz.addEventListener('drop',      e  => {
+    e.preventDefault(); dz.classList.remove('dragover');
+    const fi = document.getElementById('audioFileInput');
+    fi.files = e.dataTransfer.files;
+    showFileName(fi);
+  });
+}
+
+// Show spinner on submit
+document.getElementById('meetingForm').addEventListener('submit', function() {
+  const btn   = document.getElementById('submitBtn');
+  const label = document.getElementById('submitLabel');
+  const mode  = document.getElementById('inputMode').value;
+  btn.disabled = true;
+  label.textContent = mode === 'audio' ? '⏳ Transcribing audio...' : '⏳ Analyzing meeting...';
+});
+</script>
+{% endblock %}

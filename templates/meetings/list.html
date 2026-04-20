@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Meetings{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Meetings</h1>
+    <p>All recorded meetings and their AI-generated insights</p>
+  </div>
+  <a href="{{ url_for('meetings.new_meeting') }}" class="btn btn-primary">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Meeting
+  </a>
+</div>
+
+{% if meetings %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;">
+    {% for meeting in meetings %}
+      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span class="chip">{{ meeting.status }}</span>
+            <span style="font-size:12px;color:var(--text3);">{{ meeting.date.strftime('%b %d, %Y') }}</span>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:4px;">
+            {{ meeting.title }}
+          </div>
+          {% if meeting.description %}
+            <p style="font-size:13px;color:var(--text3);">{{ meeting.description[:100] }}{% if meeting.description|length > 100 %}…{% endif %}</p>
+          {% endif %}
+        </div>
+
+        {% if meeting.summary %}
+          <div style="background:var(--bg3);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:var(--text2);line-height:1.5;">
+            {{ meeting.summary[:160] }}{% if meeting.summary|length > 160 %}…{% endif %}
+          </div>
+        {% endif %}
+
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--text3);">
+          <span>📌 {{ meeting.tasks.count() }} tasks</span>
+          {% if meeting.keywords %}
+            <span>🏷️ {{ meeting.keywords.split(',')[:3]|join(', ') }}</span>
+          {% endif %}
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:auto;">
+          <a href="{{ url_for('meetings.view_meeting', meeting_id=meeting.id) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">
+            View Details
+          </a>
+          <a href="{{ url_for('meetings.absent_view', meeting_id=meeting.id) }}" class="btn btn-secondary btn-sm" title="Absent member view" target="_blank">
+            👤 Share
+          </a>
+          <form method="POST" action="{{ url_for('meetings.delete_meeting', meeting_id=meeting.id) }}" data-confirm="Delete this meeting and all its tasks?" style="display:inline;">
+            <button type="submit" class="btn btn-danger btn-sm btn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🎙️</div>
+    <h3>No meetings yet</h3>
+    <p>Upload a transcript or paste meeting notes to get started.</p>
+    <a href="{{ url_for('meetings.new_meeting') }}" class="btn btn-primary" style="margin-top:16px;">Create First Meeting</a>
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Admin Login{% endblock %}
+{% block page_content %}
+<div class="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="logo-mark" style="background: linear-gradient(135deg, #FF6B6B 0%, #D80032 100%);">M</div>
+      <div class="logo-text">Meet<strong>Assist</strong> <span style="color: #FF6B6B;">Admin</span></div>
+    </div>
+    <h2 class="auth-title">Admin Access</h2>
+    <p class="auth-sub">Sign in to workspace administration</p>
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Admin Email address</label>
+        <input type="email" name="email" placeholder="admin@example.com" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px; background: linear-gradient(135deg, #FF6B6B 0%, #D80032 100%);">
+        Admin Sign In →
+      </button>
+    </form>
+
+    <div class="divider"></div>
+    <div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text3);">
+      <strong style="color:var(--text2);">Demo accounts:</strong><br>
+      alice@meetassist.com / password123 (admin)<br>
+    </div>
+
+    <p class="auth-footer">Are you a member? <a href="{{ url_for('auth.login') }}">Member Login →</a></p>
+  </div>
+</div>
+{% endblock %}

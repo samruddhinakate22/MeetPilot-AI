@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sign Up{% endblock %}
+{% block page_content %}
+<div class="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="logo-mark">M</div>
+      <div class="logo-text">Meet<strong>Assist</strong></div>
+    </div>
+    <h2 class="auth-title">Create account</h2>
+    <p class="auth-sub">Join your team on MeetAssist</p>
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" placeholder="Alice Johnson" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Email address</label>
+        <input type="email" name="email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Min. 6 characters" required>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" name="confirm_password" placeholder="Repeat password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px;">
+        Create Account →
+      </button>
+    </form>
+
+    <p class="auth-footer">Already have an account? <a href="{{ url_for('auth.login') }}">Sign in →</a></p>
+  </div>
+</div>
+{% endblock %}

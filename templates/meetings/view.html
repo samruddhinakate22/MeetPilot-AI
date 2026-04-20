@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:4px;">
+      <a href="{{ url_for('meetings.list_meetings') }}" style="color:var(--text3);">Meetings</a> →
+    </div>
+    <h1>{{ meeting.title }}</h1>
+    <p>{{ meeting.date.strftime('%B %d, %Y') }} &nbsp;·&nbsp; {{ meeting.tasks.count() }} tasks &nbsp;·&nbsp;
+      <span class="chip">{{ meeting.status }}</span>
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button onclick="document.getElementById('emailModal').style.display='flex'" class="btn btn-secondary">
+      📧 Send Summary
+    </button>
+    <a href="{{ url_for('meetings.absent_view', meeting_id=meeting.id) }}" class="btn btn-secondary" target="_blank">
+      👤 Share Link
+    </a>
+    {% if current_user.role == 'admin' %}
+    <form method="POST" action="{{ url_for('meetings.delete_meeting', meeting_id=meeting.id) }}"
+          data-confirm="Delete this meeting and all its tasks?">
+      <button type="submit" class="btn btn-danger btn-sm" style="height:38px;">🗑 Delete</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Tabs ── -->
+<div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);">
+  {% for tab_id, tab_label in [('tab-summary','Summary'),('tab-tasks','Tasks ('+meeting.tasks.count()|string+')'),('tab-transcript','Transcript')] %}
+    <button class="tab-btn {% if loop.first %}active{% endif %}" data-tab="{{ tab_id }}"
+      style="padding:10px 20px;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.18s;">
+      {{ tab_label }}
+    </button>
+  {% endfor %}
+</div>
+<style>
+  .tab-btn.active { color:var(--accent2) !important; border-bottom-color:var(--accent) !important; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+</style>
+
+<!-- ── Summary Tab ── -->
+<div id="tab-summary" class="tab-panel active">
+  <div class="grid-2" style="gap:20px;">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px;">📝 Meeting Summary</div>
+      {% if meeting.summary %}
+        <p style="font-size:14px;line-height:1.8;color:var(--text2);">{{ meeting.summary }}</p>
+      {% else %}
+        <p style="color:var(--text3);">No summary generated.</p>
+      {% endif %}
+      {% if meeting.keywords %}
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;">
+          {% for kw in meeting.keywords.split(',')[:10] %}
+            <span class="chip">{{ kw.strip() }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px;">🏛️ Decisions Made</div>
+      {% set decisions = meeting.get_decisions_list() %}
+      {% if decisions %}
+        <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;">
+          {% for d in decisions %}
+            <li style="display:flex;gap:10px;align-items:flex-start;">
+              <span style="background:var(--accent-glow);color:var(--accent2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ loop.index }}</span>
+              <span style="font-size:14px;color:var(--text2);">{{ d }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p style="color:var(--text3);">No explicit decisions recorded.</p>
+      {% endif %}
+    </div>
+
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title" style="margin-bottom:14px;">💡 Key Discussion Points</div>
+      {% set points = meeting.get_key_points_list() %}
+      {% if points %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
+          {% for point in points %}
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;gap:10px;">
+              <span style="color:var(--accent);margin-top:2px;">◆</span>
+              <span style="font-size:13px;color:var(--text2);line-height:1.5;">{{ point }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color:var(--text3);">No key points extracted.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Tasks Tab ── -->
+<div id="tab-tasks" class="tab-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3>{{ meeting.tasks.count() }} Tasks</h3>
+    {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('tasks.new_task') }}" class="btn btn-primary btn-sm">+ Add Task</a>
+    {% endif %}
+  </div>
+
+  {% if tasks %}
+    <div class="table-wrap card" style="padding:0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th><th>Assigned To</th><th>Deadline</th><th>Priority</th><th>Status</th>
+            {% if current_user.role == 'admin' %}<th>Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in tasks %}
+            {% set can_edit = current_user.role == 'admin' or task.assigned_to == current_user.id %}
+            <tr data-task-id="{{ task.id }}" class="{% if task.status=='completed' %}completed{% endif %}">
+              <td style="max-width:280px;">
+                <div style="font-size:14px;font-weight:500;color:var(--text);">{{ task.description }}</div>
+                {% if task.notes %}<div style="font-size:12px;color:var(--text3);">{{ task.notes }}</div>{% endif %}
+              </td>
+              <td>
+                {% if task.assignee %}
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="avatar" style="width:28px;height:28px;font-size:10px;background:{{ task.assignee.get_avatar_color() }}">{{ task.assignee.get_avatar_initials() }}</div>
+                    <span style="font-size:13px;">{{ task.assignee.name }}</span>
+                  </div>
+                {% else %}
+                  <span style="color:var(--text3);font-size:13px;">{{ task.assigned_name or 'Unassigned' }}</span>
+                {% endif %}
+              </td>
+              <td><span class="{% if task.is_overdue() %}overdue{% endif %}" style="font-size:13px;">{{ task.deadline_display() }}</span></td>
+              <td>
+                <span class="chip" style="{% if task.priority=='high' %}color:var(--red);{% elif task.priority=='low' %}color:var(--green);{% else %}color:var(--yellow);{% endif %}">{{ task.priority }}</span>
+              </td>
+              <td>
+                {% if can_edit %}
+                  <select class="status-select" data-task-id="{{ task.id }}" style="width:auto;padding:5px 8px;font-size:12px;">
+                    <option value="pending"     {% if task.status=='pending' %}selected{% endif %}>🔴 Pending</option>
+                    <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>🟡 In Progress</option>
+                    <option value="completed"   {% if task.status=='completed' %}selected{% endif %}>🟢 Completed</option>
+                  </select>
+                {% else %}
+                  <span class="badge badge-{{ task.status }}"><span class="badge-dot"></span>{{ task.status_badge()[0] }}</span>
+                {% endif %}
+              </td>
+              {% if current_user.role == 'admin' %}
+              <td>
+                <form method="POST" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" data-confirm="Delete this task?">
+                  <button type="submit" class="btn btn-danger btn-sm btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📌</div>
+      <h3>No tasks yet</h3>
+      <p>Tasks are auto-extracted from transcripts or added manually.</p>
+      {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('tasks.new_task') }}" class="btn btn-primary" style="margin-top:12px;">Add Task</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- ── Transcript Tab ── -->
+<div id="tab-transcript" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Full Transcript</span>
+      <button onclick="copyTranscript()" class="btn btn-secondary btn-sm">📋 Copy</button>
+    </div>
+    {% if meeting.transcript %}
+      <pre id="transcriptContent" style="white-space:pre-wrap;font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.8;color:var(--text2);max-height:600px;overflow-y:auto;">{{ meeting.transcript }}</pre>
+    {% else %}
+      <p style="color:var(--text3);">No transcript available.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Email Modal ── -->
+<div id="emailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:480px;margin:20px;">
+    <h3 style="margin-bottom:6px;">📧 Send Meeting Summary</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:20px;">Select team members to email the meeting summary and their tasks.</p>
+    <form method="POST" action="{{ url_for('meetings.send_summary', meeting_id=meeting.id) }}">
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        {% for user in users %}
+          <label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--border);">
+            <input type="checkbox" name="notify_users" value="{{ user.id }}" style="accent-color:var(--accent);" checked>
+            <div class="avatar" style="width:32px;height:32px;font-size:11px;background:{{ user.get_avatar_color() }};">{{ user.get_avatar_initials() }}</div>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);">{{ user.name }}</div>
+              <div style="font-size:12px;color:var(--text3);">{{ user.email }}</div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-primary" style="flex:1;">Send Summary 📧</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('emailModal').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function copyTranscript() {
+  const text = document.getElementById('transcriptContent')?.innerText;
+  if (text) navigator.clipboard.writeText(text).then(() => showToast('Transcript copied!', 'success'));
+}
+document.getElementById('emailModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+</script>
+{% endblock %}
