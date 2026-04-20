@@ -22,11 +22,13 @@ Integration with Zoom, Google Meet, Microsoft Teams.
 
 How It Works
 
-🎤 User uploads a meeting audio
-🔊 Speech-to-text engine converts audio to text
-🤖 AI processes transcript using NLP
-📄 Outputs:
-Sends Email to team memebers with
-Summary of meeting 
-Task assigned for specific person 
+-> User uploads a meeting audio
+
+-> Speech-to-text engine converts audio to text
+
+-> AI processes transcript using NLP
+
+-> Sends Email to team memebers with
+-Summary of meeting 
+-Task assigned for specific person 
 
